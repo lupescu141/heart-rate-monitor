@@ -3,7 +3,9 @@ import time
 from machine import UART, Pin, I2C, Timer, ADC
 from ssd1306 import SSD1306_I2C
 import micropython
+import urequests as requests  
 import ujson 
+import network 
 micropython.alloc_emergency_exception_buf(200)
 
 
@@ -11,9 +13,9 @@ micropython.alloc_emergency_exception_buf(200)
             
         # Buttons:
             
-sw0 = Pin(9, Pin.IN, Pin.PULL_UP)
-sw1 = Pin(8, Pin.IN, Pin.PULL_UP)
-sw2 = Pin(7, Pin.IN, Pin.PULL_UP)
+sw0 = Pin(9, Pin.IN, Pin.PULL_UP) # UP
+sw1 = Pin(8, Pin.IN, Pin.PULL_UP) # SELECT
+sw2 = Pin(7, Pin.IN, Pin.PULL_UP) # DOWN
         
         # Display Settings:
         
