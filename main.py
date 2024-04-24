@@ -32,9 +32,13 @@ class HeartMonitor():
         # mainMenu attributes:
         
         self.menuTxtBpm = "Measure heart rate"
+        self.menuTxtHrv = "Basic HRV analysis"
         self.menuTxtHistory = "History"
+        self.menuTxtKubios = "Kubios"
         
         # measure_heart_rate attributes:
+        
+        # basic_hrv_analysis attributes:
         
         # history attributes:
         
@@ -47,9 +51,17 @@ class HeartMonitor():
     def measure_heart_rate(self):
         
         
+    def basic_hrv_analysis(self):
+        
+        
     def history(self):
         
+        
+    def kubios(self):
+        
+        
     def sendData_MQTT(self):
+        
         
         
 # Main Loop:
