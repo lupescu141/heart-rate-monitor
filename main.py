@@ -45,6 +45,8 @@ class HeartMonitor():
         
     def history(self):
         
+    def sendData_MQTT(self):
+        
         
 # Main Loop:
 
