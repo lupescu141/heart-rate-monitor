@@ -78,7 +78,6 @@ class HeartMonitor():
     def sendData_MQTT(self):
         
         
-        
 # Main Loop:
 
 while True:
