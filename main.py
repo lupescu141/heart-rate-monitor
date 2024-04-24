@@ -3,6 +3,7 @@ import time
 from machine import UART, Pin, I2C, Timer, ADC
 from ssd1306 import SSD1306_I2C
 import micropython
+import ujson 
 micropython.alloc_emergency_exception_buf(200)
 
 
@@ -26,6 +27,15 @@ class HeartMonitor():
     
     def __init__(self):
         
+        # main attribtes:
+        
+        # mainMenu attributes:
+        
+        self.menuTxtBpm = "Monitor beats per minute"
+        self.menuTxtHistory = "History"
+        
+        # beats_per_minute attributes:
+        
     
     def mainMenu(self):
         
@@ -33,7 +43,9 @@ class HeartMonitor():
     def beats_per_minute(self):
         
         
-
+    def history(self):
+        
+        
 # Main Loop:
 
 while True:
