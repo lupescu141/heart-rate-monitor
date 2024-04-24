@@ -31,16 +31,29 @@ class HeartMonitor():
         
         # mainMenu attributes:
         
-        self.menuTxtBpm = "Measure heart rate"
-        self.menuTxtHrv = "Basic HRV analysis"
+        self.menuTxtBpm 	= "Measure heart rate"
+        self.menuTxtHrv		= "Basic HRV analysis"
         self.menuTxtHistory = "History"
-        self.menuTxtKubios = "Kubios"
+        self.menuTxtKubios 	= "Kubios"
         
         # measure_heart_rate attributes:
         
         # basic_hrv_analysis attributes:
         
+        self.meanPPI 	= 0
+        self.meanHR 	= 0
+        self.RMSSD 		= 0
+        self.SDNN 		= 0
+        
         # history attributes:
+        
+        # kubios attributes:
+        
+        self.dataset = { 
+                    "type": "RRI", 
+                    "data": intervals, 
+                    "analysis": {"type": "readiness"}
+                    } 
         
         # sendData_MQTT attributes:
         
