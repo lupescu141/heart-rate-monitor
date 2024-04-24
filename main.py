@@ -31,16 +31,20 @@ class HeartMonitor():
         
         # mainMenu attributes:
         
-        self.menuTxtBpm = "Monitor beats per minute"
+        self.menuTxtBpm = "Measure heart rate"
         self.menuTxtHistory = "History"
         
-        # beats_per_minute attributes:
+        # measure_heart_rate attributes:
+        
+        # history attributes:
+        
+        # sendData_MQTT attributes:
         
     
     def mainMenu(self):
         
         
-    def beats_per_minute(self):
+    def measure_heart_rate(self):
         
         
     def history(self):
