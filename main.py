@@ -13,9 +13,9 @@ micropython.alloc_emergency_exception_buf(200)
             
         # Buttons:
             
-sw0 = Pin(9, Pin.IN, Pin.PULL_UP) # UP
+sw0 = Pin(9, Pin.IN, Pin.PULL_UP) # Down
 sw1 = Pin(8, Pin.IN, Pin.PULL_UP) # SELECT
-sw2 = Pin(7, Pin.IN, Pin.PULL_UP) # DOWN
+sw2 = Pin(7, Pin.IN, Pin.PULL_UP) # UP
         
         # Display Settings:
         
@@ -33,10 +33,12 @@ class HeartMonitor():
         
         # mainMenu attributes:
         
-        self.menuTxtBpm 	= "Measure heart rate"
-        self.menuTxtHrv		= "Basic HRV analysis"
+        self.menuTxtBpm 	= "Heart rate"
+        self.menuTxtHrv		= "HRV analysis"
         self.menuTxtHistory = "History"
         self.menuTxtKubios 	= "Kubios"
+        self.menuPointer = ">"
+        self.menuState = 1
         
         # measure_heart_rate attributes:
         
@@ -53,7 +55,7 @@ class HeartMonitor():
         
         self.dataset = { 
                     "type": "RRI", 
-                    "data": intervals, 
+                    "data": "intervals", 
                     "analysis": {"type": "readiness"}
                     } 
         
@@ -62,24 +64,85 @@ class HeartMonitor():
     
     def mainMenu(self):
         
+        time.sleep(0.05)
+        oled.text(self.menuTxtBpm, 15, 2, 1)
+        oled.text(self.menuTxtHrv, 15, 15, 1)
+        oled.text(self.menuTxtHistory, 15, 28, 1)
+        oled.text(self.menuTxtKubios, 15, 41, 1)
+        oled.show()
+        
+        if self.menuState == 1:
+            oled.fill_rect(0, 0, 10, 64, 0)
+            oled.text(self.menuPointer, 2, 2, 1)
+
+        elif self.menuState == 2:
+            oled.fill_rect(0, 0, 10, 64, 0)
+            oled.text(self.menuPointer, 2, 15, 1)
+            
+        elif self.menuState == 3:
+            oled.fill_rect(0, 0, 10, 64, 0)
+            oled.text(self.menuPointer, 2, 28, 1)
+
+        elif self.menuState == 4:
+            oled.fill_rect(0, 0, 10, 64, 0)
+            oled.text(self.menuPointer, 2, 41, 1)
+            
+        if sw2() == 0:
+            
+            if self.menuState == 1:
+                
+                self.menuState = 4
+            
+            else:
+                
+                self.menuState -= 1
+                
+        if sw0() == 0:
+            
+            if self.menuState == 4:
+                
+                self.menuState = 1
+            
+            else:
+                
+                self.menuState += 1
+                
+        if sw1() == 0:
+            
+            if self.menuState == 1:
+                pass
+                
+            elif self.menuState == 2:
+                pass
+            
+            elif self.menuState == 3:
+                pass
+
+            elif self.menuState == 4:
+                pass
         
     def measure_heart_rate(self):
-        
+        pass
         
     def basic_hrv_analysis(self):
+        pass
         
         
     def history(self):
+        pass
         
         
     def kubios(self):
+        pass
         
         
     def sendData_MQTT(self):
+        pass
         
         
 # Main Loop:
+device = HeartMonitor()
 
 while True:
-    
+    device.mainMenu()
         
