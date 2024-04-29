@@ -23,10 +23,14 @@ i2c = I2C(1, scl=Pin(15), sda=Pin(14), freq=400000)
 oled_width = 128
 oled_height = 64
 oled = SSD1306_I2C(oled_width, oled_height, i2c)
-        # Sensor
+
+        # Sensor:
+        
 sensor = ADC(26)
 sensor_history_size = 250
 history = []
+
+
 class HeartMonitor():
     
     def __init__(self):
@@ -76,18 +80,22 @@ class HeartMonitor():
         oled.show()
         
         if self.menuState == 1:
+            
             oled.fill_rect(0, 0, 10, 64, 0)
             oled.text(self.menuPointer, 2, 2, 1)
 
         elif self.menuState == 2:
+            
             oled.fill_rect(0, 0, 10, 64, 0)
             oled.text(self.menuPointer, 2, 15, 1)
             
         elif self.menuState == 3:
+            
             oled.fill_rect(0, 0, 10, 64, 0)
             oled.text(self.menuPointer, 2, 28, 1)
 
         elif self.menuState == 4:
+            
             oled.fill_rect(0, 0, 10, 64, 0)
             oled.text(self.menuPointer, 2, 41, 1)
             
@@ -168,5 +176,4 @@ class HeartMonitor():
 device = HeartMonitor()
 
 while True:
-    device.measure_heart_rate()
-        
+    device.mainMenu()
