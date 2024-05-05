@@ -184,7 +184,7 @@ class HeartMonitor():
         
         oled.text("START ", 45, 0, 1)
         oled.text("MEASUREMENT BY", 8, 11, 1)
-        oled.text("PRESSING BUTTON SW_2", 5, 23, 1)
+        oled.text("PRESSING BUTTON", 5, 23, 1)
         oled.text("SW_2", 45, 35, 1)
         oled.text("SW_1 FOR MENU", 10, 56, 1)
         oled.show()
