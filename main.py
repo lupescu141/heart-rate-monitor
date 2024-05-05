@@ -30,7 +30,7 @@ oled = SSD1306_I2C(oled_width, oled_height, i2c)
         # Sensor:
 
 sensor = ADC(26)
-sensor_history_size = 250
+sensor_history_size = 200
 history = []
 timer = Timer(-1)
 timer.deinit()
@@ -146,7 +146,7 @@ class HeartMonitor():
             
             if self.menuState == 1:
                 
-                timer.init(period=10000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
+                timer.init(period=5000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
                 oled.fill(0)
                 self.buttonsAreUp = False 
                 self.deviceState = "Measure heart rate"
@@ -178,7 +178,7 @@ class HeartMonitor():
         
         floor, roof = min(history), max(history)
         
-        max_filter = (floor + roof * 3)//4
+        max_filter = floor + (roof - floor) * 0.48
         min_filter = (floor + roof)//2
             
         if not self.beat and sensor_data > max_filter and sensor_data < 40000:
@@ -186,7 +186,7 @@ class HeartMonitor():
             self.beats += 1
             print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
             
-        if self.beat and sensor_data < min_filter:
+        elif sensor_data < max_filter and self.beat:
             self.beat = False
             print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
                 
@@ -198,7 +198,6 @@ class HeartMonitor():
             self.deviceState = "Main menu"
             
         self.checkButtonsAreUp()
-        time.sleep_ms(2)
             
         
     def bpm_calc(self):
