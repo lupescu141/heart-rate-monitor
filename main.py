@@ -10,12 +10,14 @@ micropython.alloc_emergency_exception_buf(200)
 
 
 # Hardware:
+
             
         # Buttons:
             
 sw0 = Pin(9, Pin.IN, Pin.PULL_UP) # Down
 sw1 = Pin(8, Pin.IN, Pin.PULL_UP) # SELECT
 sw2 = Pin(7, Pin.IN, Pin.PULL_UP) # UP
+
         
         # Display Settings:
         
@@ -23,7 +25,6 @@ i2c = I2C(1, scl=Pin(15), sda=Pin(14), freq=400000)
 oled_width = 128
 oled_height = 64
 oled = SSD1306_I2C(oled_width, oled_height, i2c)
-
 
 
         # Sensor:
@@ -34,6 +35,8 @@ history = []
 timer = Timer(-1)
 timer.deinit()
 sensor_bool = False
+
+
 class HeartMonitor():
     
     def __init__(self):
@@ -52,10 +55,10 @@ class HeartMonitor():
         self.menuState = 1
         
         # measure_heart_rate attributes:
+        
         self.beats = 0
         self.beat = False
         self.UserBPMText = 0
-
         
         # basic_hrv_analysis attributes:
         
@@ -164,7 +167,9 @@ class HeartMonitor():
         global history
         global sensor_history_size
         
-        oled.text("BPM: ", 15, 50, 1)
+        oled.text("BPM: ", 35, 10, 1)
+        oled.text("Press SW_1 for", 5, 35, 1)
+        oled.text("main menu", 20, 48, 1)
         oled.show()
             
         sensor_data = sensor.read_u16()
@@ -188,7 +193,8 @@ class HeartMonitor():
         if sw1() == 0 and self.buttonsAreUp == True:
             
             oled.fill(0)
-            self.buttonsAreUp = False 
+            self.buttonsAreUp = False
+            timer.deinit()
             self.deviceState = "Main menu"
             
         self.checkButtonsAreUp()
@@ -202,7 +208,7 @@ class HeartMonitor():
         bpm = self.beats * 12
         self.beats = 0
         self.UserBPMText = "BPM: "+ str(bpm)
-        oled.text(self.UserBPMText, 15, 50, 1)
+        oled.text(self.UserBPMText, 35, 10, 1)
         print(bpm)
         oled.show()
         
