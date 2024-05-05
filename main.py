@@ -47,10 +47,10 @@ class HeartMonitor():
         
         # mainMenu attributes:
         
-        self.menuTxtBpm 	= "Heart rate"
-        self.menuTxtHrv		= "HRV analysis"
-        self.menuTxtHistory = "History"
-        self.menuTxtKubios 	= "Kubios"
+        self.menuTxtBpm 	= "HEART RATE"
+        self.menuTxtHrv		= "HRV ANALYSIS"
+        self.menuTxtHistory = "HISTORY"
+        self.menuTxtKubios 	= "KUBIOS"
         self.menuPointer = ">"
         self.menuState = 1
         
@@ -63,27 +63,42 @@ class HeartMonitor():
         # basic_hrv_analysis attributes:
         
         self.meanPPI 	= 0
+        self.meanPPItxt = "MEAN PPI: "
         self.meanHR 	= 0
+        self.meanHRtxt  = "MEAN HR: "
         self.RMSSD 		= 0
+        self.RMSSDtxt	= "RMSSD: "
         self.SDNN 		= 0
+        self.SDNNtxt	= "SDNN: "
         
         # history attributes:
+        
+        self.historyList = []
+        self.timestamp = []
         
         # kubios attributes:
         
         self.dataset = { 
-                    "type": "RRI", 
-                    "data": "intervals", 
-                    "analysis": {"type": "readiness"}
-                    } 
+                        "type": "RRI", 
+                        "data": "intervals", 
+                        "analysis": {"type": "readiness"}
+                        } 
         
         # sendData_MQTT attributes:
+        
+        self.measurement = { 
+                        "mean_hr": self.meanHR, 
+                        "mean_ppi": self.meanPPI, 
+                        "rmssd": self.RMSSD, 
+                        "sdnn": self.SDNN
+                        } 
     
     def checkButtonsAreUp(self):
         
         if sw0() == 1 and sw1() == 1 and sw2() == 1:
             
             self.buttonsAreUp = True
+            
     
     def mainMenu(self):
 
@@ -146,21 +161,49 @@ class HeartMonitor():
             
             if self.menuState == 1:
                 
-                timer.init(period=5000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
                 oled.fill(0)
                 self.buttonsAreUp = False 
-                self.deviceState = "Measure heart rate"
+                self.deviceState = "measure heart rate pause"
                 
             elif self.menuState == 2:
                 pass
             
             elif self.menuState == 3:
-                pass
+                
+                oled.fill(0)
+                self.buttonsAreUp = False 
+                self.deviceState = "History"
 
             elif self.menuState == 4:
                 pass
         
         self.checkButtonsAreUp()
+        
+        
+    def measure_heart_rate_pause(self):
+        
+        oled.text("START ", 45, 0, 1)
+        oled.text("MEASUREMENT BY", 8, 11, 1)
+        oled.text("PRESSING BUTTON SW_2", 5, 23, 1)
+        oled.text("SW_2", 45, 35, 1)
+        oled.text("SW_1 FOR MENU", 10, 56, 1)
+        oled.show()
+        
+        if sw2() == 0 and  self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Measure heart rate"
+            timer.init(period=5000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
+            
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+        
+        self.checkButtonsAreUp()
+        
         
     def measure_heart_rate(self):
 
@@ -168,8 +211,8 @@ class HeartMonitor():
         global sensor_history_size
         
         oled.text("BPM: ", 35, 10, 1)
-        oled.text("Press SW_1 for", 5, 35, 1)
-        oled.text("main menu", 20, 48, 1)
+        oled.text("PRESS SW_2 TO", 10, 35, 1)
+        oled.text("STOP", 47, 48, 1)
         oled.show()
             
         sensor_data = sensor.read_u16()
@@ -181,7 +224,7 @@ class HeartMonitor():
         max_filter = floor + (roof - floor) * 0.48
         min_filter = (floor + roof)//2
             
-        if not self.beat and sensor_data > max_filter and sensor_data < 40000:
+        if not self.beat and sensor_data > max_filter:
             self.beat = True
             self.beats += 1
             print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
@@ -190,19 +233,19 @@ class HeartMonitor():
             self.beat = False
             print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
                 
-        if sw1() == 0 and self.buttonsAreUp == True:
+        if sw2() == 0 and self.buttonsAreUp == True:
             
             oled.fill(0)
             self.buttonsAreUp = False
             timer.deinit()
-            self.deviceState = "Main menu"
+            self.deviceState = "measure heart rate pause"
             
         self.checkButtonsAreUp()
             
         
     def bpm_calc(self):
         
-        oled.fill(0)
+        oled.fill_rect(65, 10, 50, 10, 0)
         print("callback")
         bpm = self.beats * 12
         self.beats = 0
@@ -217,8 +260,22 @@ class HeartMonitor():
                 
         
     def history(self):
-        pass
         
+        if len(self.historyList) == 0:
+            
+            oled.text("HISTORY", 35, 0, 1)
+            oled.text("IS EMPTY", 30, 12, 1)
+            oled.text("PRESS SW_1 TO", 10, 27, 1)
+            oled.text("GO BACK", 35, 39, 1)
+            oled.show()
+        
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+            
+        self.checkButtonsAreUp()
         
     def kubios(self):
         pass
@@ -258,4 +315,8 @@ while True:
     if device.deviceState == "kubios":
         
         device.kubios()
+        
+    if device.deviceState == "measure heart rate pause":
+        
+        device.measure_heart_rate_pause()
     
