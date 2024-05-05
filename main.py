@@ -144,6 +144,8 @@ class HeartMonitor():
             if self.menuState == 1:
                 
                 timer.init(period=10000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
+                oled.fill(0)
+                self.buttonsAreUp = False 
                 self.deviceState = "Measure heart rate"
                 
             elif self.menuState == 2:
@@ -165,9 +167,6 @@ class HeartMonitor():
         oled.text("BPM: ", 15, 50, 1)
         oled.show()
             
-            
-        
-
         sensor_data = sensor.read_u16()
         history.append(sensor_data)
         history = history[-sensor_history_size:]
@@ -188,6 +187,8 @@ class HeartMonitor():
                 
         if sw1() == 0 and self.buttonsAreUp == True:
             
+            oled.fill(0)
+            self.buttonsAreUp = False 
             self.deviceState = "Main menu"
             
         self.checkButtonsAreUp()
