@@ -7,7 +7,7 @@ import urequests as requests
 import ujson 
 import network 
 micropython.alloc_emergency_exception_buf(200)
-
+import math
 
 # Hardware:
 
@@ -34,7 +34,7 @@ sensor_history_size = 200
 history = []
 timer = Timer(-1)
 timer.deinit()
-sensor_bool = False
+list_bool = False
 
 
 class HeartMonitor():
@@ -59,6 +59,8 @@ class HeartMonitor():
         self.beats = 0
         self.beat = False
         self.UserBPMText = 0
+        self.bpm_time = 0
+        self.prev_bpm_time = 0
         
         # basic_hrv_analysis attributes:
         
@@ -70,6 +72,7 @@ class HeartMonitor():
         self.RMSSDtxt	= "RMSSD: "
         self.SDNN 		= 0
         self.SDNNtxt	= "SDNN: "
+        self.intervals = []
         
         # history attributes:
         
@@ -209,6 +212,7 @@ class HeartMonitor():
 
         global history
         global sensor_history_size
+        global list_bool
         
         oled.text("BPM: ", 35, 10, 1)
         oled.text("PRESS SW_2 TO", 10, 35, 1)
@@ -222,11 +226,19 @@ class HeartMonitor():
         floor, roof = min(history), max(history)
         
         max_filter = floor + (roof - floor) * 0.48
-        min_filter = (floor + roof)//2
+        
             
         if not self.beat and sensor_data > max_filter:
             self.beat = True
             self.beats += 1
+            self.bpm_time = time.ticks_ms()
+            time_since_peak = self.bpm_time - self.prev_bpm_time
+            
+            self.intervals.append(time_since_peak)
+
+            
+            self.prev_bpm_time = self.bpm_time
+            
             print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
             
         elif sensor_data < max_filter and self.beat:
@@ -239,6 +251,7 @@ class HeartMonitor():
             self.buttonsAreUp = False
             timer.deinit()
             self.deviceState = "measure heart rate pause"
+            print(rmssd_calc(self.intervals))
             
         self.checkButtonsAreUp()
             
@@ -290,9 +303,20 @@ device = HeartMonitor()
 
 # Timer callback
 def timer_callback(timer):
-    
     device.bpm_calc()
-
+def rmssd_calc(intervals):
+        #differences
+    diff = [intervals[i+1] - intervals[i] for i in range(len(intervals)-1)]
+    
+        #square of differences
+    squar_diff = [diffr ** 2 for diffr in diff]
+    
+        #mean
+    mean_squar_diff = sum(squar_diff) / len(squar_diff)
+    print(mean_squar_diff)
+    rmssd = math.sqrt(mean_squar_diff)
+    
+    return rmssd
 
 while True:
     
