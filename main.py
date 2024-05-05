@@ -161,45 +161,37 @@ class HeartMonitor():
 
         global history
         global sensor_history_size
-        global sensor_bool
         
         oled.text("BPM: ", 15, 50, 1)
         oled.show()
+            
+            
         
-        if sw1() == 0 and sensor_bool == False:		#sensori menee päälle nappia painamalla sen jälkeen kun menusta on valittu mittaus
-            sensor_bool = True
-            
-        else:
-            sensor_bool = False						#Jostain syystä mittauksen lopetus ei toimi kun nappia painaa uudestaan
-            
-            
-        while sensor_bool == True:
 
-            sensor_data = sensor.read_u16()
-            history.append(sensor_data)
-            history = history[-sensor_history_size:]
+        sensor_data = sensor.read_u16()
+        history.append(sensor_data)
+        history = history[-sensor_history_size:]
         
-            floor, roof = min(history), max(history)
+        floor, roof = min(history), max(history)
         
-            max_filter = (floor + roof * 3)//4
-            min_filter = (floor + roof)//2
+        max_filter = (floor + roof * 3)//4
+        min_filter = (floor + roof)//2
             
-            if not self.beat and sensor_data > max_filter and sensor_data < 40000:
-                self.beat = True
-                self.beats += 1
-                print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
+        if not self.beat and sensor_data > max_filter and sensor_data < 40000:
+            self.beat = True
+            self.beats += 1
+            print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
             
-            if self.beat and sensor_data < min_filter:
-                self.beat = False
-                print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
+        if self.beat and sensor_data < min_filter:
+            self.beat = False
+            print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
                 
-            if sw1() == 0 and self.buttonsAreUp == True:
+        if sw1() == 0 and self.buttonsAreUp == True:
             
-                self.deviceState = "Main menu"
-                break
+            self.deviceState = "Main menu"
             
-            self.checkButtonsAreUp()
-            time.sleep_ms(2)
+        self.checkButtonsAreUp()
+        time.sleep_ms(2)
             
         
     def bpm_calc(self):
