@@ -264,9 +264,6 @@ class HeartMonitor():
             elif self.menuState == 2:
                 oled.fill(0)
                 self.buttonsAreUp = False
-                timer.init(mode=Timer.ONE_SHOT, period=30000, callback= self.hrv_calc)
-                timer2.init(mode=Timer.PERIODIC, period=1000, callback= self.minusSecond)
-                self.timeLeft = 30
                 self.deviceState = "Basic hrv analysis pause"
             
             elif self.menuState == 3:
@@ -365,20 +362,28 @@ class HeartMonitor():
             
             oled.fill(0)
             self.buttonsAreUp = False
-            self.deviceState = "Measure heart rate"
+            timer.init(mode=Timer.ONE_SHOT, period=30000, callback= self.hrv_calc)
+            timer2.init(mode=Timer.PERIODIC, period=1000, callback= self.minusSecond)
+            self.timeLeft = 30
+            self.deviceState = "Basic hrv analysis"
             
         if sw1() == 0 and self.buttonsAreUp == True:
             
             oled.fill(0)
             self.buttonsAreUp = False
             self.deviceState = "Main menu"
+        
+        self.checkButtonsAreUp()
     
     def basic_hrv_analysis(self):
         
         oled.fill(0)
         oled.text("CALCULATING...", 10, 10, 1)
         oled.text(f'{self.timeLeft}', 58, 25, 1)
+        oled.text("PRESS SW_2 TO", 13, 41, 1)
+        oled.text("GO BACK", 40, 53, 1)
         oled.show()
+        
         # Maintain a log of previous values to
         # determine min, max and threshold.
         self.v = sensor.read_u16()
@@ -411,6 +416,14 @@ class HeartMonitor():
         if self.v < self.threshold_off and self.beat == True:
             
             self.beat = False
+        
+        if sw2() == 0 and  self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Basic hrv analysis pause"
+        
+        self.checkButtonsAreUp()
     
         
     def hrv_calc(self, monkey):
@@ -461,7 +474,7 @@ class HeartMonitor():
         self.timeLeft -= 1
     
     
-    def history(self):
+    def hrvHistory(self):
         
         if len(self.historyList) == 0:
             
@@ -469,6 +482,15 @@ class HeartMonitor():
             oled.text("IS EMPTY", 30, 12, 1)
             oled.text("PRESS SW_1 TO", 10, 27, 1)
             oled.text("GO BACK", 35, 39, 1)
+            oled.show()
+        
+        else:
+            oled.text(f"{self.timestamp[0][0]} {self.timestamp[0][1]} {self.timestamp[0][2]} {self.timestamp[0][3]}:{self.timestamp[0][4]}" , 10, 0, 1)
+            oled.text(f"SDNN:     {self.SDNN :.0f}", 0, 12, 1)
+            oled.text(f"RMSSD:    {self.RMSSD :.0f}", 0, 23, 1)
+            oled.text(f"MEAN HR:  {self.meanHR :.0f}", 0, 34, 1)
+            oled.text(f"MEAN PPI: {self.meanPPI :.0f}", 0, 45, 1)
+            oled.text("SW_1 FOR MENU", 10, 56, 1)
             oled.show()
         
         if sw1() == 0 and self.buttonsAreUp == True:
@@ -512,7 +534,7 @@ while True:
         
     if device.deviceState == "History":
         
-        device.history()
+        device.hrvHistory()
         
     if device.deviceState == "kubios":
         
