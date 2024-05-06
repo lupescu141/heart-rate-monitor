@@ -86,6 +86,7 @@ def refresh(bpm, beat, v, minima, maxima):
  
  
 timer = Timer(-1)
+timer2 = Timer(-1)
 
 
 def calculate_mean(data):
@@ -158,16 +159,13 @@ class HeartMonitor():
         # basic_hrv_analysis attributes:
         
         self.meanPPI 	= 0
-        self.meanPPItxt = "MEAN PPI: "
         self.meanHR 	= 0
-        self.meanHRtxt  = "MEAN HR: "
         self.RMSSD 		= 0
-        self.RMSSDtxt	= "RMSSD: "
         self.SDNN 		= 0
-        self.SDNNtxt	= "SDNN: "
         self.bpm_time = 0
         self.prev_bpm_time = 0
         self.intervals = []
+        self.timeLeft = 30
         
         # history attributes:
         
@@ -267,7 +265,9 @@ class HeartMonitor():
                 oled.fill(0)
                 self.buttonsAreUp = False
                 timer.init(mode=Timer.ONE_SHOT, period=30000, callback= self.hrv_calc)
-                self.deviceState = "Basic hrv analysis"
+                timer2.init(mode=Timer.PERIODIC, period=1000, callback= self.minusSecond)
+                self.timeLeft = 30
+                self.deviceState = "Basic hrv analysis pause"
             
             elif self.menuState == 3:
                 
@@ -354,9 +354,31 @@ class HeartMonitor():
         self.checkButtonsAreUp()
         refresh(self.bpm, self.beat, self.v, self.minima, self.maxima)
             
+    def basic_hrv_analysis_pause(self):
         
+        oled.text("PRESS SW_2", 20, 10, 1)
+        oled.text("TO START", 25, 22, 1)
+        oled.text("Calculating", 20, 34, 1)
+        oled.show()
+        
+        if sw2() == 0 and  self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Measure heart rate"
+            
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+    
     def basic_hrv_analysis(self):
         
+        oled.fill(0)
+        oled.text("CALCULATING...", 10, 10, 1)
+        oled.text(f'{self.timeLeft}', 58, 25, 1)
+        oled.show()
         # Maintain a log of previous values to
         # determine min, max and threshold.
         self.v = sensor.read_u16()
@@ -373,7 +395,9 @@ class HeartMonitor():
             
             self.bpm_time = time.ticks_ms()
             time_since_peak = self.bpm_time - self.prev_bpm_time
-            if time_since_peak > 290:
+            
+            if time_since_peak > 290 and time_since_peak < 2000:
+                
                 self.intervals.append(time_since_peak)
             
             if self.emptyBeats == False:
@@ -394,6 +418,7 @@ class HeartMonitor():
         print(monkey)
         for i in self.intervals:
             print(i)
+            
         self.SDNN = calculate_sdnn(self.intervals)
         self.RMSSD = calculate_rmssd(self.intervals)
         self.meanHR = calculate_mean_heart_rate(self.intervals)
@@ -403,9 +428,38 @@ class HeartMonitor():
         self.historyList.append(self.RMSSD)
         self.historyList.append(self.meanHR)
         self.historyList.append(self.meanPPI)
-        self.timestamp.insert(0,time.localtime())
-        print(self.timestamp)
+        self.timestamp.append(time.localtime())
+        
+        self.measurement = { 
+                        "mean_hr": self.meanHR, 
+                        "mean_ppi": self.meanPPI, 
+                        "rmssd": self.RMSSD, 
+                        "sdnn": self.SDNN
+                        }
+        oled.fill(0)
+        self.deviceState = "showHrvResult"
+        
+    def showHrvResult(self):
+        
+        oled.text(f"SDNN:     {self.SDNN :.0f}", 0, 0, 1)
+        oled.text(f"RMSSD:    {self.RMSSD :.0f}", 0, 14, 1)
+        oled.text(f"MEAN HR:  {self.meanHR :.0f}", 0, 28, 1)
+        oled.text(f"MEAN PPI: {self.meanPPI :.0f}", 0, 42, 1)
+        oled.text("SW_1 FOR MENU", 10, 56, 1)
+        oled.show()
+        
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+            
+        self.checkButtonsAreUp()
 
+    def minusSecond(self, monkey):
+        
+        self.timeLeft -= 1
+    
     
     def history(self):
         
@@ -468,6 +522,10 @@ while True:
         
         device.measure_heart_rate_pause()
     
-    if device.deviceState == "hrv_calc":
+    if device.deviceState == "showHrvResult":
         
-        device.hrv_calc()
+        device.showHrvResult()
+        
+    if device.deviceState == "Basic hrv analysis pause":
+        
+        device.basic_hrv_analysis_pause()
