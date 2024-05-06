@@ -5,7 +5,8 @@ from ssd1306 import SSD1306_I2C
 import micropython
 import urequests as requests  
 import ujson 
-import network 
+import network
+import math
 micropython.alloc_emergency_exception_buf(200)
 
 
@@ -26,15 +27,99 @@ oled_width = 128
 oled_height = 64
 oled = SSD1306_I2C(oled_width, oled_height, i2c)
 
+HEART = [
+[ 0, 0, 0, 0, 0, 0, 0, 0, 0],
+[ 0, 1, 1, 0, 0, 0, 1, 1, 0],
+[ 1, 1, 1, 1, 0, 1, 1, 1, 1],
+[ 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[ 1, 1, 1, 1, 1, 1, 1, 1, 1],
+[ 0, 1, 1, 1, 1, 1, 1, 1, 0],
+[ 0, 0, 1, 1, 1, 1, 1, 0, 0],
+[ 0, 0, 0, 1, 1, 1, 0, 0, 0],
+[ 0, 0, 0, 0, 1, 0, 0, 0, 0],
+]
 
         # Sensor:
 
 sensor = ADC(26)
-sensor_history_size = 200
-history = []
+
+def calculate_bpm(beats):
+    
+    if beats:
+        beat_time = beats[-1] - beats[0]
+        
+        if beat_time:
+            
+            return (len(beats) / (beat_time)) * 60
+
+last_y = 0
+
+def refresh(bpm, beat, v, minima, maxima):
+    
+    global last_y
+
+    oled.vline(0, 0, 32, 0)
+    oled.scroll(-1,0) # Scroll left 1 pixel
+
+    if maxima-minima > 0:
+        # Draw beat line.
+        y = 32 - int(16 * (v-minima) / (maxima-minima))
+        oled.line(125, last_y, 126, y, 1)
+        last_y = y
+
+    # Clear top text area.
+    oled.fill_rect(0,0,128,16,0) # Clear the top text area
+    oled.fill_rect(0,40,128,30,0)
+
+    if bpm:
+        oled.text("BPM: %d" % bpm, 12, 0)
+
+    # Draw heart if beating.
+    if beat:
+        for y, row in enumerate(HEART):
+            for x, c in enumerate(row):
+                oled.pixel(x, y, c)
+                
+    oled.text("PRESS SW_2 TO", 10, 45, 1)
+    oled.text("STOP", 47, 55, 1)
+    oled.show()
+ 
+ 
 timer = Timer(-1)
-timer.deinit()
-sensor_bool = False
+
+
+def calculate_mean(data):
+    return sum(data) / len(data)
+
+def calculate_sdnn(rr_intervals):
+    mean_rr = calculate_mean(rr_intervals)
+    squared_diff = [(x - mean_rr) ** 2 for x in rr_intervals]
+    variance = sum(squared_diff) / len(rr_intervals)
+    sdnn = math.sqrt(variance)
+    return sdnn
+
+def calculate_sdsd(rr_intervals):
+    differences = [second - first for first, second in zip(rr_intervals[:-1], rr_intervals[1:])]
+    sdsd = math.sqrt(sum([(diff - calculate_mean(differences))**2 for diff in differences]) / (len(differences) - 1))
+    return sdsd
+
+def calculate_rmssd(rr_intervals):
+    differences = [second - first for first, second in zip(rr_intervals[:-1], rr_intervals[1:])]
+    squared_diffs = [(diff ** 2) for diff in differences]
+    rmssd = math.sqrt(sum(squared_diffs) / len(differences))
+    return rmssd
+
+def calculate_mean_heart_rate(rr_intervals):
+    # Convert RR intervals to heart rates (beats per minute)
+    heart_rates = []  # Convert milliseconds to beats per minute (bpm)
+    
+    for i in rr_intervals:
+        
+        heart_rates.append(60000 / i)
+    # Calculate the mean heart rate
+    mean_heart_rate = sum(heart_rates) / len(rr_intervals)
+    
+    return mean_heart_rate
 
 
 class HeartMonitor():
@@ -56,9 +141,19 @@ class HeartMonitor():
         
         # measure_heart_rate attributes:
         
-        self.beats = 0
+        self.history = []
+        self.beats = []
         self.beat = False
+        self.MAX_HISTORY = 250
+        self.TOTAL_BEATS = 30
         self.UserBPMText = 0
+        self.v = 0
+        self.minima = 0
+        self.maxima = 0
+        self.threshold_on = 0
+        self.threshold_off = 0
+        self.bpm = None
+        self.emptyBeats = False
         
         # basic_hrv_analysis attributes:
         
@@ -70,6 +165,9 @@ class HeartMonitor():
         self.RMSSDtxt	= "RMSSD: "
         self.SDNN 		= 0
         self.SDNNtxt	= "SDNN: "
+        self.bpm_time = 0
+        self.prev_bpm_time = 0
+        self.intervals = []
         
         # history attributes:
         
@@ -166,7 +264,10 @@ class HeartMonitor():
                 self.deviceState = "measure heart rate pause"
                 
             elif self.menuState == 2:
-                pass
+                oled.fill(0)
+                self.buttonsAreUp = False
+                timer.init(mode=Timer.ONE_SHOT, period=30000, callback= self.hrv_calc)
+                self.deviceState = "Basic hrv analysis"
             
             elif self.menuState == 3:
                 
@@ -182,11 +283,18 @@ class HeartMonitor():
         
     def measure_heart_rate_pause(self):
         
+        oled.fill(0)
         oled.text("START ", 45, 0, 1)
         oled.text("MEASUREMENT BY", 8, 11, 1)
         oled.text("PRESSING BUTTON", 5, 23, 1)
         oled.text("SW_2", 45, 35, 1)
         oled.text("SW_1 FOR MENU", 10, 56, 1)
+        self.v = 0
+        self.minima = 0
+        self.maxima = 0
+        self.threshold_on = 0
+        self.threshold_off = 0
+        self.emptyBeats = False 
         oled.show()
         
         if sw2() == 0 and  self.buttonsAreUp == True:
@@ -194,7 +302,6 @@ class HeartMonitor():
             oled.fill(0)
             self.buttonsAreUp = False
             self.deviceState = "Measure heart rate"
-            timer.init(period=5000, mode=Timer.PERIODIC, callback=timer_callback)			#Timer päälle BPM laskua varten
             
         if sw1() == 0 and self.buttonsAreUp == True:
             
@@ -206,59 +313,100 @@ class HeartMonitor():
         
         
     def measure_heart_rate(self):
+        
+            
+        # Maintain a log of previous values to
+        # determine min, max and threshold.
+        self.v = sensor.read_u16()
+        self.history.append(self.v)
+        
 
-        global history
-        global sensor_history_size
+        # Get the tail, up to MAX_HISTORY length
+        self.history = self.history[-self.MAX_HISTORY:]
         
-        oled.text("BPM: ", 35, 10, 1)
-        oled.text("PRESS SW_2 TO", 10, 35, 1)
-        oled.text("STOP", 47, 48, 1)
-        oled.show()
-            
-        sensor_data = sensor.read_u16()
-        history.append(sensor_data)
-        history = history[-sensor_history_size:]
-        
-        floor, roof = min(history), max(history)
-        
-        max_filter = floor + (roof - floor) * 0.48
-        min_filter = (floor + roof)//2
-            
-        if not self.beat and sensor_data > max_filter:
+        self.minima, self.maxima = min(self.history), max(self.history)
+        self.threshold_on = (self.minima + self.maxima * 3) // 4   # 3/4
+        self.threshold_off = (self.minima + self.maxima) // 2      # 1/2
+
+        if self.v > self.threshold_on and self.beat == False:
+
             self.beat = True
-            self.beats += 1
-            print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
+            self.beats.append(time.time())
             
-        elif sensor_data < max_filter and self.beat:
+            if self.emptyBeats == False:
+                
+                self.beats.clear()
+                self.emptyBeats = True 
+                
+            self.beats = self.beats[-self.TOTAL_BEATS:]
+            self.bpm=calculate_bpm(self.beats)
+            
+
+        if self.v < self.threshold_off and self.beat == True:
+            
             self.beat = False
-            print(f"beat: {self.beat}, beats:{self.beats}, raw value: {sensor_data}")
                 
         if sw2() == 0 and self.buttonsAreUp == True:
             
-            oled.fill(0)
             self.buttonsAreUp = False
-            timer.deinit()
             self.deviceState = "measure heart rate pause"
             
         self.checkButtonsAreUp()
+        refresh(self.bpm, self.beat, self.v, self.minima, self.maxima)
             
         
-    def bpm_calc(self):
-        
-        oled.fill_rect(65, 10, 50, 10, 0)
-        print("callback")
-        bpm = self.beats * 12
-        self.beats = 0
-        self.UserBPMText = "BPM: "+ str(bpm)
-        oled.text(self.UserBPMText, 35, 10, 1)
-        print(bpm)
-        oled.show()
-        
-        
     def basic_hrv_analysis(self):
-        pass
-                
         
+        # Maintain a log of previous values to
+        # determine min, max and threshold.
+        self.v = sensor.read_u16()
+        self.history.append(self.v)
+        
+        # Get the tail, up to MAX_HISTORY length
+        self.history = self.history[-self.MAX_HISTORY:]
+        
+        self.minima, self.maxima = min(self.history), max(self.history)
+        self.threshold_on = (self.minima + self.maxima * 3) // 4   # 3/4
+        self.threshold_off = (self.minima + self.maxima) // 2      # 1/2
+
+        if self.v > self.threshold_on and self.beat == False:
+            
+            self.bpm_time = time.ticks_ms()
+            time_since_peak = self.bpm_time - self.prev_bpm_time
+            if time_since_peak > 290:
+                self.intervals.append(time_since_peak)
+            
+            if self.emptyBeats == False:
+                
+                self.intervals.clear()
+                self.emptyBeats = True
+                
+            self.prev_bpm_time = self.bpm_time
+            self.beat = True
+
+        if self.v < self.threshold_off and self.beat == True:
+            
+            self.beat = False
+    
+        
+    def hrv_calc(self, monkey):
+        
+        print(monkey)
+        for i in self.intervals:
+            print(i)
+        self.SDNN = calculate_sdnn(self.intervals)
+        self.RMSSD = calculate_rmssd(self.intervals)
+        self.meanHR = calculate_mean_heart_rate(self.intervals)
+        self.meanPPI = calculate_mean(self.intervals)
+        self.historyList.clear()
+        self.historyList.append(self.SDNN)
+        self.historyList.append(self.RMSSD)
+        self.historyList.append(self.meanHR)
+        self.historyList.append(self.meanPPI)
+        self.timestamp.insert(0,time.localtime())
+        print(self.timestamp)
+
+    
     def history(self):
         
         if len(self.historyList) == 0:
@@ -320,3 +468,6 @@ while True:
         
         device.measure_heart_rate_pause()
     
+    if device.deviceState == "hrv_calc":
+        
+        device.hrv_calc()
