@@ -7,6 +7,7 @@ import urequests as requests
 import ujson 
 import network
 import math
+from umqtt.simple import MQTTClient
 micropython.alloc_emergency_exception_buf(200)
 
 
@@ -43,6 +44,7 @@ HEART = [
 
 sensor = ADC(26)
 
+
 def calculate_bpm(beats):
     
     if beats:
@@ -53,6 +55,7 @@ def calculate_bpm(beats):
             return (len(beats) / (beat_time)) * 60
 
 last_y = 0
+
 
 def refresh(bpm, beat, v, minima, maxima):
     
@@ -76,6 +79,7 @@ def refresh(bpm, beat, v, minima, maxima):
 
     # Draw heart if beating.
     if beat:
+        
         for y, row in enumerate(HEART):
             for x, c in enumerate(row):
                 oled.pixel(x, y, c)
@@ -84,13 +88,45 @@ def refresh(bpm, beat, v, minima, maxima):
     oled.text("STOP", 47, 55, 1)
     oled.show()
  
- 
+
+# Timers
 timer = Timer(-1)
 timer2 = Timer(-1)
 
 
+# WLAN SETTINGS
+
+# Replace these values with your own
+SSID = "KMD759_Group_5"
+PASSWORD = "ryhma51234"
+BROKER_IP = "192.168.5.253"
+
+# Function to connect to WLAN
+def connect_wlan():
+    # Connecting to the group WLAN
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(SSID, PASSWORD)
+
+    # Attempt to connect once per second
+    while wlan.isconnected() == False:
+        print("Connecting... ")
+        time.sleep(1)
+
+    # Print the IP address of the Pico
+    print("Connection successful. Pico IP:", wlan.ifconfig()[0])
+    
+def connect_mqtt():
+    mqtt_client=MQTTClient("", BROKER_IP)
+    mqtt_client.connect(clean_session=True)
+    return mqtt_client
+
+
+#Functions
+
 def calculate_mean(data):
     return sum(data) / len(data)
+
 
 def calculate_sdnn(rr_intervals):
     mean_rr = calculate_mean(rr_intervals)
@@ -137,6 +173,7 @@ class HeartMonitor():
         self.menuTxtHrv		= "HRV ANALYSIS"
         self.menuTxtHistory = "HISTORY"
         self.menuTxtKubios 	= "KUBIOS"
+        self.menuTxtMqtt 	= "SEND MQTT"
         self.menuPointer = ">"
         self.menuState = 1
         
@@ -203,6 +240,7 @@ class HeartMonitor():
         oled.text(self.menuTxtHrv, 15, 15, 1)
         oled.text(self.menuTxtHistory, 15, 28, 1)
         oled.text(self.menuTxtKubios, 15, 41, 1)
+        oled.text(self.menuTxtMqtt, 15, 54, 1)
         oled.show()
         
         if self.menuState == 1:
@@ -227,13 +265,18 @@ class HeartMonitor():
             
             oled.fill_rect(0, 0, 10, 64, 0)
             oled.text(self.menuPointer, 2, 41, 1)
+        
+        elif self.menuState == 5:
+            
+            oled.fill_rect(0, 0, 10, 64, 0)
+            oled.text(self.menuPointer, 2, 54, 1)
             
             
         if sw2() == 0 and  self.buttonsAreUp == True:
             
             if self.menuState == 1:
                 
-                self.menuState = 4
+                self.menuState = 5
                 self.buttonsAreUp = False 
             
             else:
@@ -243,7 +286,7 @@ class HeartMonitor():
                 
         if sw0() == 0 and  self.buttonsAreUp == True:
             
-            if self.menuState == 4:
+            if self.menuState == 5:
                 
                 self.menuState = 1
                 self.buttonsAreUp = False 
@@ -262,6 +305,7 @@ class HeartMonitor():
                 self.deviceState = "measure heart rate pause"
                 
             elif self.menuState == 2:
+                
                 oled.fill(0)
                 self.buttonsAreUp = False
                 self.deviceState = "Basic hrv analysis pause"
@@ -274,6 +318,12 @@ class HeartMonitor():
 
             elif self.menuState == 4:
                 pass
+            
+            elif self.menuState == 5:
+                
+                oled.fill(0)
+                self.buttonsAreUp = False 
+                self.deviceState = "sendData_MQTT"
         
         self.checkButtonsAreUp()
         
@@ -506,11 +556,55 @@ class HeartMonitor():
                    
                    
     def sendData_MQTT(self):
-        pass
+        
+        if len(self.historyList) == 0:
+            
+            oled.text("HRV RESULT", 25, 0, 1)
+            oled.text("IS EMPTY", 30, 12, 1)
+            oled.text("PRESS SW_1 TO", 10, 27, 1)
+            oled.text("GO BACK", 35, 39, 1)
+            oled.show()
+        
+        else :
+        
+            connect_wlan()
+        
+            # Connect to MQTT
+            try:
+                mqtt_client=connect_mqtt()
+            
+            except Exception as e:
+                print(f"Failed to connect to MQTT: {e}")
 
+            # Send MQTT message
+            try:
+                while True:
+                    # Sending a message every 5 seconds.
+                    topic = "HrvResult"
+                    message = "Great job group X!"
+                    mqtt_client.publish(topic, ujson.dumps(self.measurement))
+                    print(f"Sending to MQTT: {topic} -> {self.hrvHistory}")
+                    time.sleep(5)
+                    self.deviceState = "Mqtt succesfull"
+                    break 
+                
+            except Exception as e:
+                print(f"Failed to send MQTT message: {e}")
+                
+            
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+        
+        self.checkButtonsAreUp()
+
+        
 
 # Main Loop:
 device = HeartMonitor()
+connect_wlan()
 
 # Timer callback
 def timer_callback(timer):
@@ -551,3 +645,7 @@ while True:
     if device.deviceState == "Basic hrv analysis pause":
         
         device.basic_hrv_analysis_pause()
+    
+    if device.deviceState == "sendData_MQTT":
+        
+        device.sendData_MQTT()
