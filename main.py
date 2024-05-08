@@ -122,6 +122,26 @@ def connect_mqtt():
     return mqtt_client
 
 
+#Kubios Setting
+
+APIKEY = "pbZRUi49X48I56oL1Lq8y8NDjq6rPfzX3AQeNo3a"
+CLIENT_ID = "3pjgjdmamlj759te85icf0lucv"
+CLIENT_SECRET = "111fqsli1eo7mejcrlffbklvftcnfl4keoadrdv1o45vt9pndlef"
+LOGIN_URL = "https://kubioscloud.auth.eu-west-1.amazoncognito.com/login"
+TOKEN_URL = "https://kubioscloud.auth.eu-west-1.amazoncognito.com/oauth2/token"
+REDIRECT_URI = "https://analysis.kubioscloud.com/v1/portal/login"
+
+response = requests.post(
+                            url = TOKEN_URL,
+                            data = 'grant_type=client_credentials&client_id={}'.format(CLIENT_ID),
+                            headers = {'Content-Type':'application/x-www-form-urlencoded'},
+                            auth = (CLIENT_ID, CLIENT_SECRET)
+                        )
+
+response = response.json() #Parse JSON response into a python dictionary
+access_token = response["access_token"] #Parse access toke
+
+
 #Functions
 
 def calculate_mean(data):
@@ -317,7 +337,11 @@ class HeartMonitor():
                 self.deviceState = "History"
 
             elif self.menuState == 4:
-                pass
+                
+                oled.fill(0)
+                self.buttonsAreUp = False 
+                self.deviceState = "kubios"
+
             
             elif self.menuState == 5:
                 
@@ -471,14 +495,16 @@ class HeartMonitor():
             
             oled.fill(0)
             self.buttonsAreUp = False
+            timer.deinit()
             self.deviceState = "Basic hrv analysis pause"
         
         self.checkButtonsAreUp()
     
         
-    def hrv_calc(self, monkey):
+    def hrv_calc(self, timerInfo):
         
-        print(monkey)
+        print(timerInfo)
+        
         for i in self.intervals:
             print(i)
             
@@ -502,6 +528,7 @@ class HeartMonitor():
         oled.fill(0)
         self.deviceState = "showHrvResult"
         
+        
     def showHrvResult(self):
         
         oled.text(f"SDNN:     {self.SDNN :.0f}", 0, 0, 1)
@@ -519,7 +546,8 @@ class HeartMonitor():
             
         self.checkButtonsAreUp()
 
-    def minusSecond(self, monkey):
+
+    def minusSecond(self, timerInfo):
         
         self.timeLeft -= 1
     
@@ -551,8 +579,90 @@ class HeartMonitor():
             
         self.checkButtonsAreUp()
         
+        
     def kubios(self):
-        pass
+        
+        self.intervals
+        
+        if (len(self.intervals) > 0):
+            
+            oled.text(f"SENDING DATA...", 0, 12, 1)
+            oled.show()
+            self.dataset["data"] = self.intervals
+            
+            try:
+                
+                response = requests.post(
+                                            url = "https://analysis.kubioscloud.com/v2/analytics/analyze",
+                                            headers = { "Authorization": "Bearer {}".format(access_token), #use access token to access your Kubios Cloud analysis session
+                                            "X-Api-Key": APIKEY},
+                                            json = self.dataset
+                                        ) #dataset will be automatically converted to JSON by the urequests library
+                
+                self.response = response.json()
+                oled.fill(0)
+                self.deviceState = "kubios complete"
+                
+            except:
+                
+                oled.fill(0)
+                self.deviceState = "kubios error"
+        
+        else:
+            
+            oled.text(f"NO DATA", 38, 12, 1)
+            oled.text(f"PLEASE RUN", 25, 24, 1)
+            oled.text(f"HRV ANALYSIS", 17, 36, 1)
+            oled.text("SW_1 FOR MENU", 10, 50,1)
+            oled.show()
+        
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+            
+        self.checkButtonsAreUp()
+        
+            
+    def kubiosComplete(self):
+        
+        if self.response["status"] == "ok":
+            
+            oled.text(f"SNS: {self.response['analysis']['sns_index'] :.2f}", 5,0,1)
+            oled.text(f"PNS: {self.response['analysis']['pns_index'] :.2f}", 5,12,1)
+            oled.show()
+        
+        else:
+            oled.fill(0)
+            device.deviceState = "kubios error"
+       
+        oled.text("SW_1 FOR MENU", 10, 50,1)
+        oled.show()
+        
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+            
+        self.checkButtonsAreUp()
+        
+            
+    def kubiosError(self):
+        
+        oled.text(f"KUBIOS ERROR", 0, 12, 1)
+        oled.text(f"PRESS SW_1 FOR", 0, 12, 1)
+        oled.text(f"MAIN MENU", 0, 12, 1)
+        oled.show()
+                
+        if sw1() == 0 and self.buttonsAreUp == True:
+            
+            oled.fill(0)
+            self.buttonsAreUp = False
+            self.deviceState = "Main menu"
+            
+        self.checkButtonsAreUp()
                    
                    
     def sendData_MQTT(self):
@@ -649,3 +759,11 @@ while True:
     if device.deviceState == "sendData_MQTT":
         
         device.sendData_MQTT()
+        
+    if device.deviceState == "kubios error":
+        
+        device.kubiosError()
+        
+    if device.deviceState == "kubios complete":
+        
+        device.kubiosComplete()
