@@ -131,16 +131,6 @@ LOGIN_URL = "https://kubioscloud.auth.eu-west-1.amazoncognito.com/login"
 TOKEN_URL = "https://kubioscloud.auth.eu-west-1.amazoncognito.com/oauth2/token"
 REDIRECT_URI = "https://analysis.kubioscloud.com/v1/portal/login"
 
-response = requests.post(
-                            url = TOKEN_URL,
-                            data = 'grant_type=client_credentials&client_id={}'.format(CLIENT_ID),
-                            headers = {'Content-Type':'application/x-www-form-urlencoded'},
-                            auth = (CLIENT_ID, CLIENT_SECRET)
-                        )
-
-response = response.json() #Parse JSON response into a python dictionary
-access_token = response["access_token"] #Parse access toke
-
 
 #Functions
 
@@ -591,6 +581,14 @@ class HeartMonitor():
             self.dataset["data"] = self.intervals
             
             try:
+                response = requests.post(
+                            url = TOKEN_URL,
+                            data = 'grant_type=client_credentials&client_id={}'.format(CLIENT_ID),
+                            headers = {'Content-Type':'application/x-www-form-urlencoded'},
+                            auth = (CLIENT_ID, CLIENT_SECRET))
+
+                response = response.json() #Parse JSON response into a python dictionary
+                access_token = response["access_token"] #Parse access toke
                 
                 response = requests.post(
                                             url = "https://analysis.kubioscloud.com/v2/analytics/analyze",
